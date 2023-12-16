@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"os"
 
@@ -27,6 +28,23 @@ func login(client *http.Client, username, password string) error {
 func getNeodeck(client *http.Client, username string) (*html.Node, error) {
 	neodeckURL := fmt.Sprintf("https://www.neopets.com/games/neodeck/index.phtml?owner=%s&show=cards", username)
 	resp, err := client.Get(neodeckURL)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := html.Parse(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return body, nil
+}
+
+func getCollectableCardShopStock(client *http.Client) (*html.Node, error) {
+	shopURL := fmt.Sprintf("https://www.neopets.com/objects.phtml?type=shop&obj_type=8")
+
+	resp, err := client.Get(shopURL)
 	if err != nil {
 		return nil, err
 	}
@@ -75,17 +93,23 @@ func getAttributeValue(node *html.Node, attrName string) string {
 }
 
 func main() {
-	// jar, _ := cookiejar.New(nil)
-	// client := &http.Client{Jar: jar}
+	jar, _ := cookiejar.New(nil)
+	client := &http.Client{Jar: jar}
 
-	// username := os.Args[1]
-	// password := os.Args[2]
+	username := os.Args[1]
+	password := os.Args[2]
 
-	// err := login(client, username, password)
-	// if err != nil {
-	// 	fmt.Println("Login failed:", err)
-	// 	return
-	// }
+	err := login(client, username, password)
+	if err != nil {
+		fmt.Println("Login failed:", err)
+		return
+	}
+
+	getCollectableCardShopStock(client)
+	if err != nil {
+		fmt.Println("Failed to get Neodeck:", err)
+		return
+	}
 
 	//neodeckPage, err := getNeodeck(client, username)
 	// if err != nil {
@@ -93,20 +117,20 @@ func main() {
 	// 	return
 	// }
 
-	// Reading in a file for testing so we aren't logging in each time we run it
-	neodeckPage, err := os.Open("output.html")
-	if err != nil {
-		fmt.Errorf("Failed to read file:", err)
-		return
-	}
-	defer neodeckPage.Close() // closes the file after everything is done
+	// // Reading in a file for testing so we aren't logging in each time we run it
+	// neodeckPage, err := os.Open("output.html")
+	// if err != nil {
+	// 	fmt.Errorf("Failed to read file:", err)
+	// 	return
+	// }
+	// defer neodeckPage.Close() // closes the file after everything is done
 
-	doc, err := html.Parse(neodeckPage)
-	if err != nil {
-		fmt.Errorf("Failed to parse file:", err)
-		return
-	}
+	// doc, err := html.Parse(neodeckPage)
+	// if err != nil {
+	// 	fmt.Errorf("Failed to parse file:", err)
+	// 	return
+	// }
 
-	extractItemNamesAndQuantities(doc)
+	// extractItemNamesAndQuantities(doc)
 	//fmt.Println("Cards in Neodeck:", doc)
 }
