@@ -2,11 +2,13 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"golang.org/x/net/html"
 )
@@ -113,7 +115,7 @@ func extractDataNames(node *html.Node) {
 								for _, a := range child.Attr {
 									if a.Key == "data-name" {
 										cardsInStock = append(cardsInStock, a.Val)
-										// fmt.Println("Data Name:", a.Val)
+										// fmt.Println("Card Name in stock:", a.Val)
 										break
 									}
 								}
@@ -157,72 +159,96 @@ func contains(slice1, slice2 []string) []string {
 	return missingCards
 }
 
+func sleepRandom() {
+	rand.Seed(time.Now().UnixNano())
+
+	randomSeconds := rand.Intn(81) + 5
+
+	fmt.Println("Sleeping for", randomSeconds)
+
+	time.Sleep(time.Duration(randomSeconds) * time.Second)
+}
+
 func main() {
-	jar, _ := cookiejar.New(nil)
-	client := &http.Client{Jar: jar}
+	localRun := "local"
 
-	if len(os.Args) == 0 {
-		fmt.Println("No username or password passed in. Aborting")
-		return
+	var shopStock *html.Node
+	var neodeckCards *html.Node
+
+	if localRun == "remote" {
+		username := os.Args[1]
+		password := os.Args[2]
+
+		jar, _ := cookiejar.New(nil)
+		client := &http.Client{Jar: jar}
+
+		if len(os.Args) == 0 {
+			fmt.Println("No username or password passed in. Aborting")
+			return
+		}
+
+		err := login(client, username, password)
+		if err != nil {
+			fmt.Println("Login failed:", err)
+			return
+		}
+		fmt.Println("Login Successful")
+
+		sleepRandom()
+
+		fmt.Println("Retrieving card shop stock")
+		shopStock, err = getCollectableCardShopStock(client)
+		if err != nil {
+			fmt.Println("Failed to get Card shop stock:", err)
+			return
+		}
+		fmt.Println("Card shop stock received")
+
+		sleepRandom()
+
+		fmt.Println("Retrieving my Neodeck cards")
+		neodeckCards, err = getNeodeck(client, username)
+		if err != nil {
+			fmt.Println("Failed to get Neodeck:", err)
+			return
+		}
+		fmt.Println("Neodeck retrieved")
+	} else if localRun == "local" {
+
+		// Functions for reading locally
+
+		// Reading in a file for testing so we aren't logging in each time we run it
+		neodeckPage, err := os.Open("output.html")
+		if err != nil {
+			fmt.Errorf("Failed to read file:", err)
+			return
+		}
+		defer neodeckPage.Close() // closes the file after everything is done
+
+		shopPage, err := os.Open("shop.html")
+		if err != nil {
+			fmt.Errorf("Failed to read file:", err)
+			return
+		}
+		defer neodeckPage.Close() // closes the file after everything is done
+
+		neodeckCards, err = html.Parse(neodeckPage)
+		if err != nil {
+			fmt.Errorf("Failed to parse file:", err)
+			return
+		}
+
+		shopStock, err = html.Parse(shopPage)
+		if err != nil {
+			fmt.Errorf("Failed to parse file:", err)
+			return
+		}
 	}
-
-	username := os.Args[1]
-	password := os.Args[2]
-
-	err := login(client, username, password)
-	if err != nil {
-		fmt.Println("Login failed:", err)
-		return
-	}
-	fmt.Println("Login Successful")
-
-	fmt.Println("Retrieving card shop stock")
-	shopStock, err := getCollectableCardShopStock(client)
-	if err != nil {
-		fmt.Println("Failed to get Card shop stock:", err)
-		return
-	}
-	fmt.Println("Card shop stock received")
-
-	fmt.Println("Retrieving my Neodeck cards")
-	neodeckCards, err := getNeodeck(client, username)
-	if err != nil {
-		fmt.Println("Failed to get Neodeck:", err)
-		return
-	}
-	fmt.Println("Neodeck retrieved")
-
-	// Functions for reading locally
-
-	// // Reading in a file for testing so we aren't logging in each time we run it
-	// neodeckPage, err := os.Open("output.html")
-	// if err != nil {
-	// 	fmt.Errorf("Failed to read file:", err)
-	// 	return
-	// }
-	// defer neodeckPage.Close() // closes the file after everything is done
-
-	// shopPage, err := os.Open("shop.html")
-	// if err != nil {
-	// 	fmt.Errorf("Failed to read file:", err)
-	// 	return
-	// }
-	// defer neodeckPage.Close() // closes the file after everything is done
-
-	// doc, err := html.Parse(neodeckPage)
-	// if err != nil {
-	// 	fmt.Errorf("Failed to parse file:", err)
-	// 	return
-	// }
-
-	// shopDoc, err := html.Parse(shopPage)
-	// if err != nil {
-	// 	fmt.Errorf("Failed to parse file:", err)
-	// 	return
-	// }
 
 	extractItemNames(neodeckCards)
 	extractDataNames(shopStock)
+
+	contains(ownedCards, cardsInStock)
 
 	fmt.Println("Missing cards currently in stock:")
 	for _, card := range missingCards {
