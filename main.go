@@ -13,10 +13,10 @@ import (
 	"golang.org/x/net/html"
 )
 
-var (
-	ownedCards   []string
-	cardsInStock []string
-)
+// var (
+// 	ownedCards   []string
+// 	cardsInStock []string
+// )
 
 func login(client *http.Client, username, password string) error {
 	loginURL := "https://www.neopets.com/login.phtml"
@@ -67,7 +67,8 @@ func getCollectableCardShopStock(client *http.Client) (*html.Node, error) {
 }
 
 // Need to use the golang.org/x/net/html package to parse the HTML and find the list of cards
-func extractItemNames(node *html.Node) {
+func extractOwnedCards(node *html.Node) []string {
+	var ownedCards []string
 	var crawler func(*html.Node)
 	crawler = func(n *html.Node) {
 		// Check if the node is an <img> tag
@@ -89,9 +90,12 @@ func extractItemNames(node *html.Node) {
 		}
 	}
 	crawler(node)
+
+	return ownedCards
 }
 
-func extractDataNames(node *html.Node) {
+func extractShopStock(node *html.Node) []string {
+	var cardsInStock []string
 	var crawler func(*html.Node)
 	crawler = func(n *html.Node) {
 		if n.Type == html.ElementNode && n.Data == "div" {
@@ -129,6 +133,8 @@ func extractDataNames(node *html.Node) {
 		}
 	}
 	crawler(node)
+
+	return cardsInStock
 }
 
 // Helper function to get the value of a specific attribute from a node
@@ -204,6 +210,15 @@ func main() {
 
 	sleepRandom()
 
+	// Gets the current cards in your NeoDeck
+	neodeckCards, err = getNeodeck(client, username)
+	if err != nil {
+		fmt.Errorf("Failed to read file:", err)
+		return
+	}
+
+	sleepRandom()
+
 	for {
 		fmt.Println("Retrieving card shop stock")
 		shopStock, err = getCollectableCardShopStock(client)
@@ -213,22 +228,8 @@ func main() {
 		}
 		fmt.Println("Card shop stock received")
 
-		// Reading in a file for testing so we aren't logging in each time we run it
-		neodeckPage, err := os.Open("ownedCards.html")
-		if err != nil {
-			fmt.Errorf("Failed to read file:", err)
-			return
-		}
-		defer neodeckPage.Close() // closes the file after everything is done
-
-		neodeckCards, err = html.Parse(neodeckPage)
-		if err != nil {
-			fmt.Errorf("Failed to parse file:", err)
-			return
-		}
-
-		extractItemNames(neodeckCards)
-		extractDataNames(shopStock)
+		ownedCards := extractOwnedCards(neodeckCards)
+		cardsInStock := extractShopStock(shopStock)
 
 		missingCards := contains(ownedCards, cardsInStock)
 
