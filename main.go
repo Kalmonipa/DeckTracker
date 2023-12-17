@@ -13,11 +13,6 @@ import (
 	"golang.org/x/net/html"
 )
 
-// var (
-// 	ownedCards   []string
-// 	cardsInStock []string
-// )
-
 func login(client *http.Client, username, password string) error {
 	loginURL := "https://www.neopets.com/login.phtml"
 	data := url.Values{
@@ -210,12 +205,14 @@ func main() {
 
 	sleepRandom()
 
+	fmt.Println("Getting currently owned cards")
 	// Gets the current cards in your NeoDeck
 	neodeckCards, err = getNeodeck(client, username)
 	if err != nil {
 		fmt.Errorf("Failed to read file:", err)
 		return
 	}
+	fmt.Println("Currently owned cards retrieved")
 
 	sleepRandom()
 
