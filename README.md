@@ -1,5 +1,6 @@
 # DeckTracker
-Keeps track of my deck so I can know what cards I need to buy and what I already have
+Looks at what cards you have in your Neodeck and what is currently in the Collectable Card store so you can avoid duplicates.
+Note: It doesn't do any buying or selling, just compares your cards to the store.
 
 ## Usage
 
