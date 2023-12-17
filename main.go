@@ -16,7 +16,6 @@ import (
 var (
 	ownedCards   []string
 	cardsInStock []string
-	missingCards []string
 )
 
 func login(client *http.Client, username, password string) error {
@@ -144,6 +143,8 @@ func getAttributeValue(node *html.Node, attrName string) string {
 
 // contains checks if slice1 contains all elements of slice2.
 func contains(slice1, slice2 []string) []string {
+	var missingCards []string
+
 	for _, val2 := range slice2 {
 		found := false
 		for _, val1 := range slice1 {
@@ -169,33 +170,41 @@ func sleepRandom() {
 	time.Sleep(time.Duration(randomSeconds) * time.Second)
 }
 
-func main() {
-	localRun := "local"
+func refreshPage() {
+	rand.Seed(time.Now().UnixNano())
 
+	randomSeconds := rand.Intn(180) + 400
+
+	fmt.Printf("Sleeping for %d seconds\n", randomSeconds)
+
+	time.Sleep(time.Duration(randomSeconds) * time.Second)
+}
+
+func main() {
 	var shopStock *html.Node
 	var neodeckCards *html.Node
 
-	if localRun == "remote" {
-		username := os.Args[1]
-		password := os.Args[2]
+	username := os.Args[1]
+	password := os.Args[2]
 
-		jar, _ := cookiejar.New(nil)
-		client := &http.Client{Jar: jar}
+	jar, _ := cookiejar.New(nil)
+	client := &http.Client{Jar: jar}
 
-		if len(os.Args) == 0 {
-			fmt.Println("No username or password passed in. Aborting")
-			return
-		}
+	if len(os.Args) == 0 {
+		fmt.Println("No username or password passed in. Aborting")
+		return
+	}
 
-		err := login(client, username, password)
-		if err != nil {
-			fmt.Println("Login failed:", err)
-			return
-		}
-		fmt.Println("Login Successful")
+	err := login(client, username, password)
+	if err != nil {
+		fmt.Println("Login failed:", err)
+		return
+	}
+	fmt.Println("Login Successful")
 
-		sleepRandom()
+	sleepRandom()
 
+	for {
 		fmt.Println("Retrieving card shop stock")
 		shopStock, err = getCollectableCardShopStock(client)
 		if err != nil {
@@ -204,28 +213,8 @@ func main() {
 		}
 		fmt.Println("Card shop stock received")
 
-		sleepRandom()
-
-		fmt.Println("Retrieving my Neodeck cards")
-		neodeckCards, err = getNeodeck(client, username)
-		if err != nil {
-			fmt.Println("Failed to get Neodeck:", err)
-			return
-		}
-		fmt.Println("Neodeck retrieved")
-	} else if localRun == "local" {
-
-		// Functions for reading locally
-
 		// Reading in a file for testing so we aren't logging in each time we run it
-		neodeckPage, err := os.Open("output.html")
-		if err != nil {
-			fmt.Errorf("Failed to read file:", err)
-			return
-		}
-		defer neodeckPage.Close() // closes the file after everything is done
-
-		shopPage, err := os.Open("shop.html")
+		neodeckPage, err := os.Open("ownedCards.html")
 		if err != nil {
 			fmt.Errorf("Failed to read file:", err)
 			return
@@ -238,21 +227,22 @@ func main() {
 			return
 		}
 
-		shopStock, err = html.Parse(shopPage)
-		if err != nil {
-			fmt.Errorf("Failed to parse file:", err)
-			return
+		extractItemNames(neodeckCards)
+		extractDataNames(shopStock)
+
+		missingCards := contains(ownedCards, cardsInStock)
+
+		fmt.Println(time.Now())
+		if len(missingCards) == 0 {
+			fmt.Println("We own all cards in stock")
+		} else {
+			fmt.Println("Missing cards currently in stock:")
+			for _, card := range missingCards {
+				fmt.Println(card)
+			}
 		}
+
+		refreshPage()
+		fmt.Println("=============")
 	}
-
-	extractItemNames(neodeckCards)
-	extractDataNames(shopStock)
-
-	contains(ownedCards, cardsInStock)
-
-	fmt.Println("Missing cards currently in stock:")
-	for _, card := range missingCards {
-		fmt.Println(card)
-	}
-
 }
